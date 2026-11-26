@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: procure360
+    env: docker
+    dockerfilePath: ./Dockerfile.cloud
+    plan: free
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ENVIRONMENT
+        value: production
+      - key: AUTO_CREATE_TABLES
+        value: "false"
+      - key: SEED_DEMO_DATA
+        value: "false"
+      - key: DATABASE_URL
+        value: "sqlite:////app/data/procure360.db"
+      - key: BACKUP_ENABLED
+        value: "false"
+      - key: CORS_ORIGINS
+        value: "*"
+    disk:
+      name: procure360-data
+      mountPath: /app/data
+      sizeGB: 1

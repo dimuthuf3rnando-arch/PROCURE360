@@ -1,0 +1,92 @@
+name: procure360
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-procure360}
+      POSTGRES_USER: ${POSTGRES_USER:-procure360}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-procure360}
+      TZ: ${TZ:-Asia/Colombo}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-procure360} -d ${POSTGRES_DB:-procure360}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - procure360
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-procure360}:${POSTGRES_PASSWORD:-procure360}@db:5432/${POSTGRES_DB:-procure360}
+      SECRET_KEY: ${SECRET_KEY:-procure360-dev-secret-change-me-in-production}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-Procure@123}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      AUTO_CREATE_TABLES: "false"
+      COMPLETION_WATCHLIST_DAYS: ${COMPLETION_WATCHLIST_DAYS:-45}
+      BOND_WATCHLIST_DAYS: ${BOND_WATCHLIST_DAYS:-60}
+      BEC_ALERT_DAYS: ${BEC_ALERT_DAYS:-0}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+      TZ: ${TZ:-Asia/Colombo}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4)"]
+      interval: 15s
+      timeout: 6s
+      retries: 10
+      start_period: 25s
+    networks:
+      - procure360
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - procure360
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB:-procure360}
+      PGUSER: ${POSTGRES_USER:-procure360}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-procure360}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      TZ: ${TZ:-Asia/Colombo}
+    volumes:
+      - ./infra/scripts/backup-db.sh:/usr/local/bin/backup-db.sh:ro
+      - backups:/backups
+    entrypoint: ["/bin/sh", "/usr/local/bin/backup-db.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - procure360
+
+volumes:
+  db_data:
+  backups:
+
+networks:
+  procure360:
+    driver: bridge

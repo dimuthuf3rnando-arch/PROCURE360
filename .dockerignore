@@ -1,0 +1,37 @@
+# Keep Docker build contexts small and free of host-specific artifacts.
+.git
+.github
+.venv
+venv
+.env
+.env.*
+!.env.example
+
+# Local databases and backups must never enter an image.
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+backend/alembic_verify.db
+backups
+
+# Python caches
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+
+# Frontend dependencies and build output
+frontend/node_modules
+frontend/dist
+frontend/.vite
+frontend/certs
+
+# Logs and editor files
+*.log
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+desktop.ini
